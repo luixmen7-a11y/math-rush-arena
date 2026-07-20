@@ -1,0 +1,13 @@
+{
+  "name": "Math Rush Arena",
+  "short_name": "MathRush",
+  "description": "Juego educativo de matemáticas",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#05040E",
+  "theme_color": "#05040E",
+  "icons": [
+    { "src": "assets/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "math-rush-arena",
+  "version": "5.0.0",
+  "description": "Juego educativo de matemáticas tipo juego de mesa + Puntos ONEX",
+  "author": "Luis",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "npx serve -l 8000 ."
+  }
+}

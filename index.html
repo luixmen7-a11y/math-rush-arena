@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Math Rush Arena"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#05040E"/>
+<meta name="format-detection" content="telephone=no"/>
+<title>Math Rush Arena</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Fredoka+One&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="src/styles.css"/>
+</head>
+<body>
+
+
+<canvas id="bg-canvas"></canvas>
+<div id="nebula-layer">
+  <div class="neb-cloud nc1"></div>
+  <div class="neb-cloud nc2"></div>
+  <div class="neb-cloud nc3"></div>
+</div>
+<audio id="bgm" loop preload="auto" playsinline webkit-playsinline>
+  <source src="assets/music.mp3" type="audio/mpeg"/>
+</audio>
+
+<div id="app">
+
+<!-- ══ SPLASH ══ -->
+<div id="splash">
+  <img src="assets/logo.png" class="splash-logo" alt="Math Rush Arena"/>
+  <div class="splash-tagline">🎮 JUEGO EDUCATIVO DE MATEMÁTICAS</div>
+  <button class="splash-tap" id="splash-btn">▶ ¡JUGAR AHORA!</button>
+  <div class="splash-hint">2–6 jugadores · Combos · Jefes · Cartas</div>
+</div>
+
+
+<!-- ══ LOBBY / HOME ══ -->
+<div id="lobby" class="hidden">
+  <div class="lobby-top">
+    <img src="assets/logo.png" class="lobby-logo" alt="MRA"/>
+    <div class="currency">
+      <div class="curr-pill">🪙 <span id="lb-coins">0</span></div>
+      <div class="curr-pill">💎 <span id="lb-gems">0</span></div>
+    </div>
+  </div>
+  <div class="lobby-body">
+    <div class="level-card">
+      <div class="level-row">
+        <div class="level-badge" id="lb-level">1</div>
+        <div class="level-info">
+          <div class="level-num">Nivel <span id="lb-level-num">1</span></div>
+          <div class="level-sub"><span id="lb-xp">0</span> / <span id="lb-xp-max">100</span> XP</div>
+          <div class="xp-track"><div class="xp-fill" id="lb-xp-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nearwin-card" id="nearwin-card">
+      <div class="nearwin-title">🎯 CASI LO LOGRAS</div>
+      <div id="nearwin-items"></div>
+    </div>
+
+    <button class="big-play" id="lobby-play">🎮 ¡JUGAR!</button>
+
+    <div class="lobby-grid">
+      <div class="lobby-tile" id="tile-chests">
+        <span class="lobby-tile-icon">🎁</span>
+        <div class="lobby-tile-name">Cofres</div>
+        <div class="lobby-tile-sub">Ábrelos para premios</div>
+        <span class="tile-badge hidden" id="chest-badge">0</span>
+      </div>
+      <div class="lobby-tile" id="tile-collection">
+        <span class="lobby-tile-icon">📚</span>
+        <div class="lobby-tile-name">Colección</div>
+        <div class="lobby-tile-sub" id="coll-count">0 personajes</div>
+      </div>
+      <div class="lobby-tile classroom" id="tile-classroom">
+        <span class="lobby-tile-icon">🏫</span>
+        <div class="lobby-tile-name">Modo Aula</div>
+        <div class="lobby-tile-sub">Para profesores</div>
+      </div>
+      <div class="lobby-tile" id="tile-shop">
+        <span class="lobby-tile-icon">🛒</span>
+        <div class="lobby-tile-name">Tienda</div>
+        <div class="lobby-tile-sub">Compra cofres</div>
+      </div>
+      <div class="lobby-tile" id="tile-stats">
+        <span class="lobby-tile-icon">📊</span>
+        <div class="lobby-tile-name">Estadísticas</div>
+        <div class="lobby-tile-sub" id="stats-sub">0 partidas</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CHEST OPENING ══ -->
+<div id="chest-screen" class="hidden">
+  <div class="chest-big" id="chest-big" style="--chest-glow:#FFD23F">🎁</div>
+  <div class="chest-hint" id="chest-hint">👆 ¡Toca para abrir!</div>
+  <div class="chest-rewards" id="chest-rewards"></div>
+  <button class="chest-continue hidden" id="chest-continue">CONTINUAR</button>
+</div>
+
+<!-- ══ COLLECTION ══ -->
+<div id="collection-screen" class="hidden">
+  <div class="screen-hdr">
+    <button class="back-btn" id="coll-back">← Volver</button>
+    <div class="screen-hdr-title" style="margin-left:8px;">📚 COLECCIÓN</div>
+  </div>
+  <div class="coll-tabs" id="coll-tabs">
+    <button class="coll-tab on" data-tab="chars">Personajes</button>
+    <button class="coll-tab" data-tab="cards">Cartas</button>
+    <button class="coll-tab" data-tab="trophies">Trofeos</button>
+  </div>
+  <div class="coll-progress" id="coll-progress"></div>
+  <div class="coll-grid" id="coll-grid" style="overflow-y:auto;flex:1;"></div>
+</div>
+
+
+<!-- ══ MODO AULA — CONFIGURACIÓN ══ -->
+<div id="classroom-setup" class="hidden">
+  <div class="screen-hdr">
+    <button class="back-btn" id="cs-back">← Volver</button>
+    <div class="screen-hdr-title" style="margin-left:8px;color:var(--green);">🏫 MODO AULA</div>
+  </div>
+  <div class="cs-body">
+    <div class="cs-intro">
+      <div class="cs-intro-title">👩‍🏫 Para profesores</div>
+      <div class="cs-intro-text">Proyecta el juego en la pizarra. Los alumnos compiten por turnos respondiendo preguntas de matemáticas. Configura los equipos o alumnos abajo y comienza.</div>
+    </div>
+
+    <div class="section-lbl">¿CÓMO JUGARÁN?</div>
+    <div class="team-mode-row">
+      <button class="team-mode-btn on" data-tm="individual">👤 Por alumnos<small>Cada uno con su nombre</small></button>
+      <button class="team-mode-btn" data-tm="teams">👥 Por equipos<small>Grupos compiten</small></button>
+    </div>
+
+    <div class="section-lbl" id="participants-lbl">ALUMNOS (2–6)</div>
+    <div class="team-list" id="team-list"></div>
+    <button class="team-add-btn" id="team-add">+ Agregar</button>
+
+    <div style="height:16px;"></div>
+    <div class="cs-config">
+      <div class="cs-config-row">
+        <div class="section-lbl">DIFICULTAD</div>
+        <div class="mode-row">
+          <button class="mode-btn cs-mode on" data-m="easy">➕ Básico<br><small>Operaciones · Raíces</small></button>
+          <button class="mode-btn cs-mode" data-m="hard">∑ Avanzado<br><small>Álgebra · Potencias</small></button>
+        </div>
+      </div>
+      <div class="cs-config-row">
+        <div class="section-lbl">META (PUNTOS PARA GANAR)</div>
+        <div class="goal-row" id="goal-row">
+          <button class="goal-btn" data-goal="0">Llegar a meta</button>
+          <button class="goal-btn on" data-goal="50">50 pts</button>
+          <button class="goal-btn" data-goal="100">100 pts</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="cs-start-btn" id="cs-start">🏫 ¡COMENZAR CLASE!</button>
+  </div>
+</div>
+
+<!-- ══ CHARACTER SELECT / SETUP ══ -->
+<div id="char-select" class="hidden">
+  <div class="screen-hdr">
+    <div class="screen-hdr-title">⚙️ CONFIGURAR PARTIDA</div>
+    <div style="margin-left:auto;display:flex;gap:8px;">
+      <button class="hdr-btn" id="cs-music">🔇</button>
+    </div>
+  </div>
+  <div class="screen-body">
+    <div class="section-lbl">ELIGE TU PERSONAJE</div>
+    <div class="chars-grid" id="chars-grid"></div>
+    <div class="setup-section">
+      <div class="section-lbl">JUGADORES</div>
+      <div class="opt-row" id="np-btns">
+        <button class="opt-btn on" data-n="2">2</button>
+        <button class="opt-btn" data-n="3">3</button>
+        <button class="opt-btn" data-n="4">4</button>
+        <button class="opt-btn" data-n="5">5</button>
+        <button class="opt-btn" data-n="6">6</button>
+      </div>
+    </div>
+    <div class="setup-section">
+      <div class="section-lbl">DIFICULTAD</div>
+      <div class="mode-row">
+        <button class="mode-btn" data-m="easy">➕ Básico<br><small>Operaciones · Raíces</small></button>
+        <button class="mode-btn on" data-m="hard">∑ Avanzado<br><small>Álgebra · Potencias</small></button>
+      </div>
+    </div>
+    <button class="play-btn" id="play-btn">🚀 ¡COMENZAR!</button>
+  </div>
+</div>
+
+<!-- ══ GAME ══ -->
+<div id="game" class="hidden">
+  <div class="game-hdr">
+    <img src="assets/logo.png" class="hdr-logo" alt="MRA"/>
+    <div class="hdr-spacer"></div>
+    <div id="round-badge" style="font-size:11px;color:#5a5880;margin-right:4px;">Ronda 1</div>
+    <button class="hdr-btn" id="music-btn">🔇</button>
+    <button class="hdr-btn" id="menu-btn">↩</button>
+  </div>
+  <div id="event-banner"></div>
+  <div class="game-main">
+    <div class="board-col"><div id="board"></div></div>
+    <div class="side-col">
+      <div class="side-inner">
+        <div class="panel">
+          <div class="p-lbl">PUNTUACIONES</div>
+          <div id="scoreboard"></div>
+        </div>
+        <div id="combo-display">
+          <div class="combo-fire">🔥</div>
+          <div class="combo-num" id="combo-num">0</div>
+          <div class="combo-lbl">COMBO</div>
+        </div>
+        <div class="action-panel" id="action-panel">
+          <div class="turn-info">
+            <span class="turn-emoji" id="t-em"></span>
+            <div><div class="turn-name" id="t-nm"></div><div class="turn-sub" id="t-sub">Tu turno</div></div>
+          </div>
+          <div class="dice-area"><span class="dice" id="dice">🎲</span></div>
+          <button class="roll-btn" id="roll-btn">🎲 LANZAR</button>
+          <button class="card-btn hidden" id="card-btn">🃏 Cartas (0)</button>
+          <div class="cards-hand hidden" id="cards-hand"></div>
+        </div>
+        <div class="log-panel">
+          <div class="p-lbl">EVENTOS</div>
+          <div id="glog"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ QUESTION ══ -->
+<div id="qscreen" class="hidden">
+  <div class="q-card">
+    <div class="q-hdr">
+      <span id="qp-em" style="font-size:24px;"></span>
+      <span id="qp-nm" style="font-size:13px;font-weight:900;"></span>
+      <span class="q-badge badge-math" id="q-badge">➕ MATH</span>
+    </div>
+    <div class="q-combo-indicator" id="q-combo-ind"></div>
+    <div class="timer-track"><div class="timer-fill" id="t-fill"></div></div>
+    <div class="timer-num"><span id="t-num">20</span>s</div>
+    <div class="q-text" id="q-text"></div>
+    <div class="opts" id="opts"></div>
+    <div class="q-result hidden" id="q-res"></div>
+  </div>
+</div>
+
+<!-- ══ BOSS SCREEN ══ -->
+<div id="boss-screen" class="hidden">
+  <div class="boss-card">
+    <div class="boss-title">💀 ¡JEFE MATEMÁTICO!</div>
+    <div class="boss-sub" id="boss-sub">Todos los jugadores compiten</div>
+    <span class="boss-emoji" id="boss-emoji">💀</span>
+    <div class="q-text" id="boss-q-text" style="margin-bottom:14px;"></div>
+    <div class="opts" id="boss-opts"></div>
+    <div class="q-result hidden" id="boss-res"></div>
+  </div>
+</div>
+
+<!-- ══ EVENT OVERLAY ══ -->
+<div class="event-overlay hidden" id="event-overlay">
+  <div class="event-card">
+    <span class="event-emoji" id="ev-emoji"></span>
+    <div class="event-title" id="ev-title"></div>
+    <div class="event-desc" id="ev-desc"></div>
+    <button class="event-ok" id="ev-ok">¡ENTENDIDO!</button>
+  </div>
+</div>
+
+<!-- ══ ATTACK OVERLAY ══ -->
+<div class="overlay hidden" id="atk-overlay">
+  <div class="modal">
+    <div class="modal-title" style="color:var(--red);">⚔️ ELEGIR OBJETIVO</div>
+    <div id="atk-targets"></div>
+    <button class="modal-cancel" id="atk-cancel">Cancelar</button>
+  </div>
+</div>
+
+<!-- ══ GAMEOVER ══ -->
+<div id="gameover" class="hidden">
+  <span class="go-trophy">🏆</span>
+  <div class="go-label">CAMPEÓN MATEMÁTICO</div>
+  <div class="go-winner" id="go-winner"></div>
+  <div id="go-rank" style="width:100%;max-width:380px;"></div>
+  <button class="go-back" id="go-back">↩ MENÚ</button>
+</div>
+
+</div><!-- #app -->
+
+
+<script src="src/game.js"></script>
+<script src="src/onex.js"></script>
+</body>
+</html>

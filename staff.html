@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#0b0b0d"/>
+<title>ONEX Staff — Math Rush Arena</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet"/>
+<style>
+:root{--red:#E31B23;--red-d:#8f0e13;--gray:#9aa0a8;--bg:#0b0b0d;--card:#141116;--line:#262128;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:#eee;font-family:'Nunito',sans-serif;}
+body{display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);}
+.hdr{padding:16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);background:#121014;}
+.hdr b{color:var(--red);}
+.hdr .who{margin-left:auto;font-size:12px;color:var(--gray);}
+main{flex:1;overflow-y:auto;padding:16px;max-width:520px;width:100%;margin:0 auto;}
+.tabs{display:flex;gap:6px;margin-bottom:16px;}
+.tab{flex:1;padding:12px 6px;background:transparent;border:1px solid var(--line);border-radius:12px;color:var(--gray);font-weight:900;font-size:13px;font-family:inherit;cursor:pointer;}
+.tab.on{border-color:var(--red);color:#fff;background:#E31B2314;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;}
+label{display:block;font-size:11px;letter-spacing:2px;color:#5c565e;margin-bottom:6px;}
+input{width:100%;background:#0f0d11;border:1px solid var(--line);border-radius:10px;color:#fff;font-size:18px;font-weight:900;padding:13px;outline:none;font-family:inherit;text-align:center;letter-spacing:4px;text-transform:uppercase;}
+input:focus{border-color:var(--red);}
+.btn{width:100%;background:linear-gradient(135deg,#E31B23,#a3121a);border:none;border-radius:12px;color:#fff;font-weight:900;font-size:15px;padding:15px;cursor:pointer;font-family:inherit;box-shadow:0 3px 0 #6d090e;margin-top:10px;min-height:52px;}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #6d090e;}
+.btn.alt{background:#1c191d;box-shadow:0 3px 0 #000;border:1px solid var(--line);}
+.btn:disabled{opacity:.4;}
+.bonus-btns{display:flex;flex-direction:column;gap:10px;}
+.bonus-btn{display:flex;align-items:center;gap:12px;background:#0f0d11;border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;font-family:inherit;color:#fff;text-align:left;min-height:64px;}
+.bonus-btn:active{border-color:var(--red);}
+.bonus-btn .ico{font-size:28px;}
+.bonus-btn .t{font-weight:900;font-size:15px;}
+.bonus-btn .s{font-size:12px;color:var(--gray);}
+.code-big{font-size:44px;font-weight:900;letter-spacing:10px;text-align:center;color:#ffd23f;background:#0f0d11;border:2px dashed #E31B2366;border-radius:14px;padding:22px 6px;margin:12px 0;}
+.status{text-align:center;font-weight:900;font-size:15px;padding:12px;border-radius:12px;margin-top:10px;}
+.st-valid{background:#0d2417;color:#3FE88A;border:1px solid #3FE88A44;}
+.st-bad{background:#24100d;color:#ff6b70;border:1px solid #E31B2344;}
+.detail{font-size:14px;line-height:1.8;color:#ccc;margin-top:10px;}
+.detail b{color:#fff;}
+.hist-row{display:flex;gap:8px;align-items:center;font-size:12px;padding:8px 10px;background:#0f0d11;border-radius:10px;margin-bottom:5px;color:#bbb;flex-wrap:wrap;}
+.hist-row .c{font-weight:900;letter-spacing:1px;color:#ffd23f;}
+.hist-row .s{margin-left:auto;font-weight:900;}
+.s-used{color:#3FE88A;}.s-issued{color:#5B9FFF;}.s-pending{color:#ffd23f;}.s-expired,.s-refunded{color:#777;}.s-claimed{color:#3FE88A;}
+.err{color:#ff6b70;font-size:13px;text-align:center;min-height:18px;margin-top:8px;font-weight:700;}
+.muted{color:#5c565e;font-size:12px;text-align:center;margin-top:8px;line-height:1.5;}
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+<div class="hdr">🏋️ <b>ONEX</b>&nbsp;Panel de Staff <span class="who" id="who"></span></div>
+<main>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="card">
+    <label>TU NOMBRE (PARA EL REGISTRO)</label>
+    <input id="staff-name" maxlength="20" placeholder="ANA" style="margin-bottom:12px;"/>
+    <label>PIN DE STAFF</label>
+    <input id="pin" type="password" inputmode="numeric" maxlength="8" placeholder="••••"/>
+    <button class="btn" id="login-btn">ENTRAR</button>
+    <div class="err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- PANEL -->
+<div id="panel" class="hidden">
+  <div class="tabs">
+    <button class="tab on" data-t="bonus">🎫 Bonus</button>
+    <button class="tab" data-t="redeem">🎁 Canjes</button>
+    <button class="tab" data-t="hist">📋 Historial</button>
+  </div>
+
+  <!-- TAB BONUS -->
+  <div id="tab-bonus">
+    <div class="card">
+      <label>EL CLIENTE COMPRÓ:</label>
+      <div class="bonus-btns">
+        <button class="bonus-btn" data-kind="agua"><span class="ico">💧</span><span><span class="t">Agua</span><br><span class="s">Código de +30 Puntos ONEX</span></span></button>
+        <button class="bonus-btn" data-kind="score"><span class="ico">🥤</span><span><span class="t">Score</span><br><span class="s">Código de +100 Puntos ONEX</span></span></button>
+        <button class="bonus-btn" data-kind="score2"><span class="ico">🥤🥤</span><span><span class="t">2 Scores</span><br><span class="s">+100 pts y desbloquea 🐉 Dragón Dorado</span></span></button>
+      </div>
+      <div id="bonus-result" class="hidden">
+        <div class="code-big" id="bonus-code"></div>
+        <div class="muted">Dicta o muestra este código al cliente.<br>Un solo uso · expira en 24 horas.</div>
+        <button class="btn alt" id="bonus-again">Generar otro</button>
+      </div>
+      <div class="err" id="bonus-err"></div>
+    </div>
+  </div>
+
+  <!-- TAB CANJES -->
+  <div id="tab-redeem" class="hidden">
+    <div class="card">
+      <label>CÓDIGO DEL CLIENTE (8 CARACTERES)</label>
+      <input id="redeem-code" maxlength="8" placeholder="ABCD2345"/>
+      <button class="btn" id="redeem-check">VERIFICAR</button>
+      <div id="redeem-info" class="hidden">
+        <div class="status" id="redeem-status"></div>
+        <div class="detail" id="redeem-detail"></div>
+        <button class="btn" id="redeem-deliver">✅ MARCAR ENTREGADO</button>
+      </div>
+      <div class="err" id="redeem-err"></div>
+    </div>
+  </div>
+
+  <!-- TAB HISTORIAL -->
+  <div id="tab-hist" class="hidden">
+    <div class="card">
+      <label>CANJES DE PREMIOS</label>
+      <div id="hist-redeems"><div class="muted">Cargando…</div></div>
+    </div>
+    <div class="card">
+      <label>CÓDIGOS DE BONUS</label>
+      <div id="hist-bonuses"></div>
+    </div>
+    <button class="btn alt" id="hist-refresh">↻ Actualizar</button>
+  </div>
+</div>
+
+</main>
+<script>
+'use strict';
+const API='/api';
+let staffToken=null;
+const $=id=>document.getElementById(id);
+async function post(path,body){const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});return r.json();}
+const STATUS_ES={valid:'VÁLIDO',pending:'✅ VÁLIDO — pendiente de entrega',used:'⛔ YA ENTREGADO',expired:'⌛ EXPIRADO',refunded:'↩ DEVUELTO',issued:'emitido',claimed:'canjeado'};
+
+// Sesión de staff persistida solo en sessionStorage (se borra al cerrar el navegador)
+try{staffToken=sessionStorage.getItem('onex_staff_token');}catch(e){}
+if(staffToken){$('login').classList.add('hidden');$('panel').classList.remove('hidden');}
+
+$('login-btn').addEventListener('click',async()=>{
+  $('login-err').textContent='';
+  try{
+    const j=await post('/staff/auth',{pin:$('pin').value,staffName:$('staff-name').value.trim()});
+    if(j.ok){
+      staffToken=j.staffToken;
+      try{sessionStorage.setItem('onex_staff_token',staffToken);}catch(e){}
+      $('who').textContent=$('staff-name').value.trim()||'staff';
+      $('login').classList.add('hidden');$('panel').classList.remove('hidden');
+    } else {
+      $('login-err').textContent=j.error==='demasiados_intentos_espera_15min'?'Demasiados intentos. Espera 15 minutos.':(j.error==='pin_incorrecto'?'PIN incorrecto.':'Error: '+j.error);
+    }
+  }catch(e){$('login-err').textContent='Sin conexión.';}
+});
+
+function relogin(){staffToken=null;try{sessionStorage.removeItem('onex_staff_token');}catch(e){}$('panel').classList.add('hidden');$('login').classList.remove('hidden');}
+
+// Tabs
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');
+  ['bonus','redeem','hist'].forEach(n=>$('tab-'+n).classList.toggle('hidden',n!==t.dataset.t));
+  if(t.dataset.t==='hist')loadHistory();
+}));
+
+// ── BONUS ──
+document.querySelectorAll('.bonus-btn').forEach(b=>b.addEventListener('click',async()=>{
+  $('bonus-err').textContent='';
+  try{
+    const j=await post('/bonus/generate',{staffToken,kind:b.dataset.kind});
+    if(j.ok){
+      $('bonus-code').textContent=j.code;
+      $('bonus-result').classList.remove('hidden');
+    } else if(j.error==='staff_no_autorizado'){relogin();}
+    else $('bonus-err').textContent='Error: '+j.error;
+  }catch(e){$('bonus-err').textContent='Sin conexión.';}
+}));
+$('bonus-again').addEventListener('click',()=>{$('bonus-result').classList.add('hidden');});
+
+// ── CANJES ──
+async function checkRedeem(action){
+  $('redeem-err').textContent='';
+  const code=$('redeem-code').value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(code.length!==8){$('redeem-err').textContent='El código tiene 8 caracteres.';return;}
+  try{
+    const j=await post('/redeem/validate',{staffToken,code,action});
+    if(j.ok){
+      $('redeem-info').classList.remove('hidden');
+      const st=$('redeem-status');
+      st.textContent=STATUS_ES[j.status]||j.status;
+      st.className='status '+(j.status==='pending'?'st-valid':'st-bad');
+      $('redeem-detail').innerHTML=
+        `🎁 Premio: <b>${j.prize}</b> (${j.cost} pts)<br>`+
+        `👤 Cliente: <b>${j.playerName}</b> · Tel: <b>····${j.tel4}</b><br>`+
+        (j.deliveredAt?`Entregado: ${new Date(j.deliveredAt).toLocaleString('es-CL')}`:`Expira: ${new Date(j.exp).toLocaleTimeString('es-CL')}`);
+      $('redeem-deliver').style.display=(j.status==='pending')?'block':'none';
+      if(action==='deliver'&&j.status==='used'){st.textContent='✅ ENTREGADO CORRECTAMENTE';st.className='status st-valid';}
+    } else if(j.error==='staff_no_autorizado'){relogin();}
+    else{$('redeem-info').classList.add('hidden');$('redeem-err').textContent={codigo_no_existe:'Código no existe.',ya_entregado:'Este código YA fue entregado.',expirado:'Código expirado (los puntos se devuelven solos).'}[j.error]||('Error: '+j.error);}
+  }catch(e){$('redeem-err').textContent='Sin conexión.';}
+}
+$('redeem-check').addEventListener('click',()=>checkRedeem('check'));
+$('redeem-deliver').addEventListener('click',()=>{if(confirm('¿Confirmas que entregaste el premio?'))checkRedeem('deliver');});
+
+// ── HISTORIAL ──
+async function loadHistory(){
+  try{
+    const j=await post('/redeem/validate',{staffToken,action:'history'});
+    if(!j.ok){if(j.error==='staff_no_autorizado')relogin();return;}
+    $('hist-redeems').innerHTML=(j.redeems||[]).map(r=>
+      `<div class="hist-row"><span class="c">${r.code}</span><span>${r.prizeName}</span><span>${r.playerName||''}</span><span class="s s-${r.status}">${STATUS_ES[r.status]||r.status}</span></div>`
+    ).join('')||'<div class="muted">Sin canjes aún.</div>';
+    $('hist-bonuses').innerHTML=(j.bonuses||[]).slice(0,30).map(b=>
+      `<div class="hist-row"><span class="c">${b.code}</span><span>${b.label||b.kind} (+${b.pts})</span><span>${b.generatedBy||''}</span><span class="s s-${b.status}">${STATUS_ES[b.status]||b.status}</span></div>`
+    ).join('')||'<div class="muted">Sin códigos aún.</div>';
+  }catch(e){}
+}
+$('hist-refresh').addEventListener('click',loadHistory);
+</script>
+</body>
+</html>
