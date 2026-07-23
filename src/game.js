@@ -1541,11 +1541,16 @@ function fitBoard(){
   if(!board||!col)return;
   // Tablero-imagen: ajustar al contenedor preservando el aspecto 1448×1086.
   if(board.classList.contains('img-board')){
-    const cw=col.clientWidth-10,ch=col.clientHeight-10;
-    if(cw<=0||ch<=0)return;
+    const phone=window.innerWidth<=640;
+    const cw=col.clientWidth-10;
+    if(cw<=0)return;
     const ar=1448/1086;
     let w=cw,h=w/ar;
-    if(h>ch){h=ch;w=h*ar;}
+    if(!phone){ // en escritorio/tablet también respetamos la altura disponible
+      const ch=col.clientHeight-10;
+      if(ch>0&&h>ch){h=ch;w=h*ar;}
+    }
+    // en celular el ancho manda (el tablero se pega arriba y el HUD ocupa el resto)
     board.style.transform='';
     board.style.width=Math.round(w)+'px';
     board.style.height=Math.round(h)+'px';
