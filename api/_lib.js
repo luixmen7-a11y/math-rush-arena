@@ -77,9 +77,16 @@ function genCode(len) {
 }
 function genId() { return 'p_' + crypto.randomBytes(9).toString('base64url'); }
 
-// ── Rate limit atómico: INCR + EXPIRE, rechaza sobre el máximo ──
+// ── Rate limit atómico de VENTANA FIJA ──
+// El TTL se fija SOLO al crear la clave: así la ventana no se renueva con
+// cada intento. Si se renovara, quien reintenta (incluido el staff que se
+// equivoca) quedaría bloqueado indefinidamente en lugar de esperar la ventana.
+const LUA_RATE = `
+local c = redis.call('INCR', KEYS[1])
+if c == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+return c`;
 async function rateLimit(key, max, windowSec) {
-  const [count] = await pipeline([['INCR', key], ['EXPIRE', key, String(windowSec)]]);
+  const count = await redis('EVAL', LUA_RATE, '1', key, String(windowSec));
   return count <= max;
 }
 
