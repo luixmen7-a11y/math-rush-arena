@@ -184,14 +184,25 @@ async function claim(){
 }
 
 // ── Tarjeta en el lobby ──
+// La tarjeta puede venir ya en el HTML (menú v2): en ese caso solo
+// conectamos el clic. Si no existe, la creamos.
 function injectLobbyTile(){
+  const existing=document.getElementById('tile-onex');
+  if(existing){
+    if(!existing.dataset.onexBound){
+      existing.dataset.onexBound='1';
+      existing.addEventListener('click',open);
+    }
+    return;
+  }
   const grid=document.querySelector('.lobby-grid');
-  if(!grid||document.getElementById('tile-onex'))return;
-  const tile=document.createElement('div');
+  if(!grid)return;
+  const tile=document.createElement('button');
   tile.className='lobby-tile onex-tile';tile.id='tile-onex';
-  tile.innerHTML=`<span class="lobby-tile-icon">🏋️</span>
-    <div class="lobby-tile-name">Puntos ONEX</div>
-    <div class="lobby-tile-sub">Canjea premios reales</div>`;
+  tile.dataset.onexBound='1';
+  tile.innerHTML=`<span class="lobby-tile-icon" aria-hidden="true">🏋️</span>
+    <span class="lobby-tile-name">Puntos ONEX</span>
+    <span class="lobby-tile-sub">Canjea premios reales</span>`;
   grid.insertBefore(tile,grid.firstChild);
   tile.addEventListener('click',open);
 }
