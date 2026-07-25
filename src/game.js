@@ -561,8 +561,15 @@ PATH.forEach(n=>{
 });
 const LAST_IDX=PATH.length-1;
 function pIdx(sqNum){return PATH.indexOf(sqNum);}
-function pAt(i){return PATH[Math.max(0,Math.min(i,LAST_IDX))];}
+// Índice de meta efectivo: en solitario puede ser anterior al final (duración)
+function goalIndex(){
+  try{ return (G&&G.solo&&S&&S.goalIdx!=null)?S.goalIdx:LAST_IDX; }
+  catch(e){ return LAST_IDX; } // por si se llama antes de inicializar G/S
+}
+function pAt(i){return PATH[Math.max(0,Math.min(i,goalIndex()))];}
 function relMove(sqNum,delta){const i=sqNum<=0?-1:pIdx(sqNum);return pAt(i+delta);}
+// ¿La posición actual alcanza la meta?
+function atGoal(sqNum){return pIdx(sqNum)>=goalIndex();}
 
 // Coordenadas (centro, en % de la imagen 1448×1086) de cada casilla
 const POS_IMG={
@@ -606,6 +613,51 @@ let G={
 let qTimer=null,qData=null,qDone=false;
 let bossActive=false,bossAnswered=false,bossTimer=null;
 let pendingAtkMode='random';
+
+// ════════════════════════════════════════════════════════
+// MODO SOLITARIO — estado de la sesión (S) + intentos
+// Reutiliza el motor completo (tablero, dado, turnos, casillas,
+// preguntas, cartas). G.solo=true activa las variantes de un jugador.
+// ════════════════════════════════════════════════════════
+let S={
+  attempts:3,maxAttempts:3,
+  correct:0,wrong:0,bestCombo:0,
+  onexPts:0,startTime:0,
+  keepNext:false,          // carta "Segunda Oportunidad": conserva un intento
+  goalIdx:46,              // índice de recorrido que cuenta como meta
+  ended:false,
+};
+function soloReset(){
+  const A=(window.MRA&&window.MRA.ATTEMPTS)||{max:3,start:3};
+  const dur=(window.MRA&&window.MRA.DURATIONS||[]).find(d=>d.id===G.duration);
+  S={attempts:A.start,maxAttempts:A.max,correct:0,wrong:0,bestCombo:0,
+     onexPts:0,startTime:Date.now(),keepNext:false,
+     goalIdx:dur?Math.min(dur.goalIdx,LAST_IDX):LAST_IDX,ended:false};
+}
+function soloGainAttempt(){
+  const A=(window.MRA&&window.MRA.ATTEMPTS)||{max:3,regainOnStar:1};
+  if(S.attempts>=S.maxAttempts){floatText('❤️ MÁXIMO','#3FE88A');return false;}
+  S.attempts=Math.min(S.maxAttempts,S.attempts+(A.regainOnStar||1));
+  floatText('❤️ +1 INTENTO','#3FE88A');renderSoloHUD();return true;
+}
+// HUD compacto de solitario (intentos, racha, posición, ONEX de la partida)
+function renderSoloHUD(){
+  if(!G.solo)return;
+  const el=document.getElementById('solo-hud');if(!el)return;
+  const p=G.players[0];if(!p)return;
+  let hearts='';
+  for(let i=0;i<S.maxAttempts;i++){
+    hearts+=`<span class="heart${i<S.attempts?'':' lost'}" aria-hidden="true">${i<S.attempts?'❤️':'🖤'}</span>`;
+  }
+  const idx=p.pos<=0?0:pIdx(p.pos)+1;
+  el.innerHTML=`
+    <div class="solo-row">
+      <div class="solo-hearts" role="img" aria-label="Intentos restantes: ${S.attempts} de ${S.maxAttempts}">${hearts}</div>
+      <div class="solo-stat"><b>${p.points}</b><small>puntos</small></div>
+      <div class="solo-stat"><b>${p.combo||0}</b><small>racha</small></div>
+      <div class="solo-stat"><b>${idx}/${S.goalIdx+1}</b><small>avance</small></div>
+    </div>`;
+}
 
 const rnd=n=>Math.floor(Math.random()*n);
 const d6=()=>rnd(6)+1;
@@ -746,14 +798,23 @@ function animateMove(pid,fromPos,toPos,cb){
 // UI RENDER
 // ════════════════════════════════════════
 function renderScore(){
+  const sp=document.getElementById('scores-panel');
+  // En solitario el marcador multijugador se oculta (lo cubre el HUD de solitario)
+  if(sp)sp.classList.toggle('hidden',!!G.solo);
+  if(G.solo){renderSoloHUD();return;}
+  // Ranking por puntos para mostrar la posición
+  const order=[...G.players].sort((a,b)=>b.points-a.points).map(p=>p.id);
   document.getElementById('scoreboard').innerHTML=G.players.map((p,i)=>{
     const act=i===G.cur;
+    const rank=order.indexOf(p.id)+1;
     const comboStr=p.combo>1?`<span class="s-combo">🔥${p.combo}</span>`:'';
     return `<div class="s-row ${act?'cur':''}" style="--c:${p.color};background:${act?p.color+'18':'transparent'};border-left-color:${act?p.color:'transparent'}">
-      <span class="s-icon">${p.icon}</span>
-      <span class="s-name" style="color:${p.color}">${p.charEmoji} ${p.name}</span>
+      <span class="s-rank" aria-label="Posición ${rank}">${rank}º</span>
+      <span class="s-icon" aria-hidden="true">${p.charEmoji||p.icon}</span>
+      <span class="s-name" style="color:${p.color}">${p.name}</span>
       <span class="s-pts">${p.points}</span>${comboStr}
-      ${G.frozen.includes(p.id)?'<span style="font-size:10px">❄️</span>':''}
+      ${act?'<span class="s-turn" aria-label="Turno actual">●</span>':''}
+      ${G.frozen.includes(p.id)?'<span aria-label="Congelado" style="font-size:10px">❄️</span>':''}
     </div>`;
   }).join('');
 }
@@ -777,12 +838,17 @@ function renderPanel(){
   const rb=document.getElementById('roll-btn');
   rb.style.background=`linear-gradient(135deg,${cp.color},${cp.color}cc)`;
   rb.style.boxShadow=`0 4px 0 ${cp.color}88`;rb.disabled=G.rolling;
+  // Botón principal: la etiqueta refleja la acción disponible
+  rb.textContent=G.rolling?'LANZANDO…':'🎲 LANZAR DADO';
+  rb.setAttribute('aria-label',G.rolling?'Lanzando el dado':'Lanzar el dado');
   // Cards
   const cb=document.getElementById('card-btn');
-  if(cp.cards?.length){cb.classList.remove('hidden');cb.textContent=`🃏 Cartas (${cp.cards.length})`;}
+  if(cp.cards?.length){cb.classList.remove('hidden');cb.textContent=`🃏 Usar poder (${cp.cards.length})`;}
   else cb.classList.add('hidden');
-  // Round
-  document.getElementById('round-badge').textContent=`Ronda ${G.round}`;
+  // Round / turno
+  const rbdg=document.getElementById('round-badge');
+  if(rbdg)rbdg.textContent=G.solo?`Turno ${G.round}`:`Ronda ${G.round}`;
+  if(G.solo)renderSoloHUD();
 }
 function renderCards(){
   const hand=document.getElementById('cards-hand');
@@ -882,14 +948,20 @@ function handleRoll(){
 function doMove(pid,steps){
   const cp=G.players.find(p=>p.id===pid);
   const from=cp.pos;
-  const toIdx=Math.min((from<=0?-1:pIdx(from))+steps,LAST_IDX);
+  // En solitario la meta puede ser antes del final (duración de partida)
+  const goal=G.solo?S.goalIdx:LAST_IDX;
+  const toIdx=Math.min((from<=0?-1:pIdx(from))+steps,goal);
   const to=PATH[toIdx];
   cp.pos=to; // fijar antes de animar (el render final usa player.pos)
   if(steps>=10)checkAchievement(pid,'move10');
   animateMove(pid,from,to,()=>{
     renderScore();cameraFollow(to);
-    if(toIdx>=LAST_IDX){winGame(cp);return;}
-    if(toIdx>=LAST_IDX-3)cinematicMoment('⚡ ¡CASI EN LA META!','#FF5BC8');
+    if(G.solo)renderSoloHUD();
+    if(toIdx>=goal){
+      if(G.solo){soloEnd(true);return;}
+      winGame(cp);return;
+    }
+    if(toIdx>=goal-3)cinematicMoment('⚡ ¡CASI EN LA META!','#FF5BC8');
     const sq=SQ_DEF.find(s=>s.n===cp.pos);
     setTimeout(()=>triggerSquare(sq,pid),300);
   });
@@ -910,7 +982,7 @@ function triggerSquare(sq,pid){
         const sqElP=document.getElementById('sq-'+p.pos);
         if(sqElP){const rP=sqElP.getBoundingClientRect();spawnParticles(rP.left+rP.width/2,rP.top,'#3FE88A',12);}
         floatText('🚀 TURBO +3','#3FE88A'); addLog('🚀 '+p.name+' Turbo +3 → C'+p.pos);
-        animateMove(pid,fromP,p.pos,()=>{renderScore();if(pIdx(p.pos)>=LAST_IDX){winGame(p);return;}nextTurn();});
+        animateMove(pid,fromP,p.pos,()=>{renderScore();if(atGoal(p.pos)){if(G.solo){soloEnd(true);return;}winGame(p);return;}nextTurn();});
       } else { grantCard(pid); nextTurn(); }
       break;
     }
@@ -920,7 +992,9 @@ function triggerSquare(sq,pid){
       if(bSqEl){const bR=bSqEl.getBoundingClientRect();spawnParticles(bR.left+bR.width/2,bR.top,G.doubleRound?'#FF5BC8':'#FFD23F',14);}
       floatText('⭐ +'+bPts+'pts',G.doubleRound?'#FF5BC8':'#FFD23F');
       p.points+=bPts; addLog('⭐ '+p.name+' BONUS +'+bPts+'pts');
-      renderScore(); nextTurn(); break;
+      // Solitario: la estrella también puede recuperar un intento perdido
+      if(G.solo&&S.attempts<S.maxAttempts){soloGainAttempt();addLog('❤️ Recuperaste un intento');}
+      renderScore(); if(G.solo)renderSoloHUD(); nextTurn(); break;
     }
     case 'trap':{
       if(G.trapImmune.includes(pid)){
@@ -946,7 +1020,7 @@ function triggerSquare(sq,pid){
       if(eff==='question'){ openQ(pid,false); }
       else if(eff==='card'){ grantCard(pid); floatText('🎁 ¡SORPRESA!','#B06FFF'); nextTurn(); }
       else if(eff==='bonus10'){ p.points+=10; floatText('🎁 +10pts','#B06FFF'); renderScore(); nextTurn(); }
-      else{ const fM=p.pos; p.pos=relMove(p.pos,2); floatText('🎁 +2 CASILLAS','#B06FFF'); animateMove(pid,fM,p.pos,()=>{renderScore();if(pIdx(p.pos)>=LAST_IDX){winGame(p);return;}nextTurn();}); }
+      else{ const fM=p.pos; p.pos=relMove(p.pos,2); floatText('🎁 +2 CASILLAS','#B06FFF'); animateMove(pid,fM,p.pos,()=>{renderScore();if(atGoal(p.pos)){if(G.solo){soloEnd(true);return;}winGame(p);return;}nextTurn();}); }
       break;
     }
     case 'boss':{ triggerBoss(pid); break; }
@@ -1015,11 +1089,39 @@ function bosAnswer(idx){
 // ════════════════════════════════════════
 // QUESTION ENGINE
 // ════════════════════════════════════════
+// ── Selección de preguntas por categoría/dificultad SIN repetir ──
+// Si el banco filtrado se agota durante la partida, se reinicia el registro
+// de vistas (mejor repetir que quedarse sin preguntas).
+function questionPool(){
+  const CFG=window.MRA||{};
+  const diff=(CFG.DIFFICULTIES||[]).find(d=>d.id===G.difficulty);
+  let base;
+  if(diff&&diff.bank==='EQ')base=EQ;
+  else if(diff&&diff.bank==='HQ')base=HQ;
+  else if(diff&&diff.bank==='MIX')base=EQ.concat(HQ);
+  else base=G.mode==='easy'?EQ:HQ; // compatibilidad con el flujo antiguo
+  const cat=(CFG.CATEGORIES||[]).find(c=>c.id===G.category);
+  if(cat&&cat.match){
+    const filtered=base.filter(q=>cat.match.test(q.q));
+    if(filtered.length>=(CFG.MIN_POOL||6))base=filtered;
+  }
+  return base;
+}
+function pickQuestion(){
+  const pool=questionPool();
+  if(!G.seenQ)G.seenQ=[];
+  let avail=pool.filter(q=>!G.seenQ.includes(q.q));
+  if(!avail.length){G.seenQ=[];avail=pool;}   // banco agotado: reiniciar
+  const q=pick(avail);
+  G.seenQ.push(q.q);
+  return q;
+}
 function openQ(pid,fast){
-  const pool=G.mode==='easy'?EQ:HQ;
-  const q=pick(pool);qData={...q,pid,fast};qDone=false;
+  const q=pickQuestion();qData={...q,pid,fast};qDone=false;
   const p=G.players.find(x=>x.id===pid);
-  const maxT=fast?7:20;
+  const diffCfg=(window.MRA&&window.MRA.DIFFICULTIES||[]).find(d=>d.id===G.difficulty);
+  const baseT=diffCfg?diffCfg.timer:20;
+  const maxT=fast?7:baseT;
   // Secuencia: casilla se ilumina → energía → cámara enfoca → carta emerge
   cinematicFocus(p.pos);
   const sqEl=document.getElementById('sq-'+p.pos);
@@ -1082,6 +1184,10 @@ function ansQ(idx){
     if(geniusIdx>=0){pts*=2;p.cards.splice(geniusIdx,1);floatText('🧠 x2','#B06FFF');}
     p.points+=pts;haptic([15,40,15]);
     SFX.correct();if(p.combo>1)SFX.combo(p.combo);
+    // Estadísticas de la partida (modo solitario)
+    S.correct++;if(p.combo>S.bestCombo)S.bestCombo=p.combo;
+    // Progreso de misión diaria
+    if(window.MRAUI&&q.pid===0){MRAUI.missionTick('correct');MRAUI.missionTick('combo',p.combo);}
     // Puntos ONEX: solo notifica el EVENTO; el servidor decide los puntos
     if(window.ONEX&&!G.classroom&&q.pid===0){ONEX.event('correct');if(p.combo===5)ONEX.event('combo5');}
     // Classroom goal-points win
@@ -1108,17 +1214,38 @@ function ansQ(idx){
       p.retryUsed=true;res.style.color='#FFD23F';res.textContent='🤖 Robot IA: ¡intento de nuevo!';
       setTimeout(()=>{qDone=false;openQ(q.pid,q.fast);},1500);return;
     }
-    if(!G.classroom)p.pos=relMove(p.pos,-2);
+    S.wrong++;
     haptic(120);SFX.wrong();
     res.style.color='#FF4E6A';
-    res.textContent=G.classroom?`❌ La respuesta correcta era: ${q.a}`:`❌ Incorrecto — Respuesta: ${q.a}`;
-    addLog(`❌ ${p.name}: respuesta era ${q.a}`);floatText('❌','#FF4E6A');
-    flashScreen('#FF4E6A');updateAllPawns();
+    if(G.solo){
+      // Modo solitario: una respuesta incorrecta cuesta un intento (no retrocede
+      // ni descuenta Puntos ONEX ya obtenidos).
+      let msg=`❌ Incorrecto — Respuesta: ${q.a}`;
+      if(S.keepNext){S.keepNext=false;msg+=' · 🛡️ Intento conservado';floatText('🛡️','#3FE88A');}
+      else{S.attempts=Math.max(0,S.attempts-1);floatText('💔','#FF4E6A');}
+      res.textContent=msg;
+      if(q.why)res.textContent+=`\n💡 ${q.why}`;
+      addLog(`❌ Respuesta era ${q.a}`);
+      flashScreen('#FF4E6A');renderSoloHUD();
+      if(S.attempts<=0){
+        clearInterval(qTimer);
+        setTimeout(()=>{showScreen('game');soloEnd(false);},1400);
+        return;
+      }
+    } else {
+      if(!G.classroom)p.pos=relMove(p.pos,-2);
+      res.textContent=G.classroom?`❌ La respuesta correcta era: ${q.a}`:`❌ Incorrecto — Respuesta: ${q.a}`;
+      addLog(`❌ ${p.name}: respuesta era ${q.a}`);floatText('❌','#FF4E6A');
+      flashScreen('#FF4E6A');updateAllPawns();
+    }
   }
   renderCombo();
   setTimeout(()=>{
+    // Si la partida en solitario ya terminó, no volver a la pantalla de juego
+    if(G.solo&&S.ended)return;
     showScreen('game');renderScore();renderPanel();renderCards();
     G.doubleRound=false;
+    if(G.solo){renderSoloHUD();nextTurn();return;}
     maybeGlobalEvent();nextTurn();
   },2000);
 }
@@ -1127,9 +1254,21 @@ function timeoutQ(){
   qDone=true;const p=G.players.find(x=>x.id===qData.pid);
   p.combo=0;renderCombo();
   const res=document.getElementById('q-res');res.classList.remove('hidden');
-  res.style.color='#FF8800';res.textContent='⏱ ¡Tiempo agotado!';SFX.timeout();
+  res.style.color='#FF8800';
+  res.textContent=`⏱ ¡Tiempo agotado! — Respuesta: ${qData.a}`;SFX.timeout();
   addLog(`⏱ ${p.name} — sin tiempo`);
-  setTimeout(()=>{showScreen('game');renderPanel();nextTurn();},1600);
+  if(G.solo){
+    // Sin tiempo cuenta como fallo: consume un intento
+    S.wrong++;
+    if(S.keepNext){S.keepNext=false;floatText('🛡️','#3FE88A');}
+    else{S.attempts=Math.max(0,S.attempts-1);floatText('💔','#FF4E6A');}
+    renderSoloHUD();
+    if(S.attempts<=0){setTimeout(()=>{showScreen('game');soloEnd(false);},1500);return;}
+  }
+  setTimeout(()=>{
+    if(G.solo&&S.ended)return;
+    showScreen('game');renderPanel();if(G.solo)renderSoloHUD();nextTurn();
+  },1600);
 }
 
 // ════════════════════════════════════════
@@ -1160,9 +1299,32 @@ function useCard(idx){
   if(card.id==='teleport'){doMove(cp.id,8);return;}
   if(card.id==='shield'){G.trapImmune.push(cp.id);floatText('🛡️ INMUNE','#3FE88A');}
   if(card.id==='divine'){G.trapImmune.push(cp.id,cp.id);floatText('✨ ESCUDO DIVINO','#FFD23F');}
-  if(card.id==='freeze'){pendingAtkMode='freeze';showAtkModal();}
-  if(card.id==='steal'){pendingAtkMode='steal';showAtkModal();}
-  if(card.id==='swap'){pendingAtkMode='swap';showAtkModal();}
+  // ── Cartas que dependen de rivales: variante individual en solitario ──
+  if(card.id==='freeze'){
+    if(G.solo){ // "Congelar" → conserva un intento al equivocarte
+      S.keepNext=true;floatText('🛡️ SEGUNDA OPORTUNIDAD','#8ACDFF');
+      addLog('🛡️ Tu próximo error no costará un intento');renderSoloHUD();
+    } else {pendingAtkMode='freeze';showAtkModal();}
+  }
+  if(card.id==='steal'){
+    if(G.solo){ // "Ladrón" → bonificación directa de puntos
+      cp.points+=8;floatText('💎 +8 pts','#FFD23F');addLog('💎 +8 puntos');renderScore();renderSoloHUD();
+    } else {pendingAtkMode='steal';showAtkModal();}
+  }
+  if(card.id==='swap'){
+    if(G.solo){ // "Cambio de Destino" → avanza a la próxima casilla especial
+      const cur=pIdx(cp.pos),goal=S.goalIdx;
+      let target=-1;
+      for(let i=cur+1;i<=goal;i++){
+        const s=SQ_DEF.find(x=>x.n===PATH[i]);
+        if(s&&s.type!=='math'){target=i;break;}
+      }
+      if(target<0)target=Math.min(cur+2,goal);
+      floatText('🔀 ¡SALTO ESPECIAL!','#FF8800');
+      doMove(cp.id,target-cur);return;
+    }
+    pendingAtkMode='swap';showAtkModal();
+  }
   if(card.id==='double'){addLog(`⚡ ${cp.name} juega de nuevo!`);/*next turn skips*/}
   if(card.id==='genius'){if(!cp.cards)cp.cards=[];cp.cards.unshift({...CARDS.find(c=>c.id==='genius')});floatText('🧠 x2 ACTIVADO','#B06FFF');}
 }
@@ -1194,11 +1356,82 @@ function doAtk(tid){
 
 function nextTurn(){
   G.round++;
+  if(G.solo){
+    // Un solo jugador: no rota el turno, solo habilita el siguiente lanzamiento
+    G.cur=0;G.showCards=false;
+    document.getElementById('dice').textContent='🎲';
+    renderPanel();renderCards();renderScore();renderCombo();renderSoloHUD();
+    return;
+  }
   G.cur=(G.cur+1)%G.players.length;
   G.showCards=false;
   document.getElementById('dice').textContent='🎲';
   renderPanel();renderCards();renderScore();renderCombo();
   if(G.classroom)setTimeout(announceTurn,150);
+}
+
+// ════════════════════════════════════════════════════════
+// MODO SOLITARIO — final de partida con resumen completo
+// ════════════════════════════════════════════════════════
+function soloEnd(completed){
+  if(S.ended)return;S.ended=true;
+  clearInterval(qTimer);
+  stopMusic();
+  const p=G.players[0];
+  const total=S.correct+S.wrong;
+  const acc=total?Math.round(S.correct/total*100):0;
+  const secs=Math.max(1,Math.round((Date.now()-S.startTime)/1000));
+  const mins=Math.floor(secs/60),rest=secs%60;
+  const idx=p.pos<=0?0:pIdx(p.pos)+1;
+  const CFG=window.MRA||{};
+  const cat=(CFG.CATEGORIES||[]).find(c=>c.id===G.category);
+  const diff=(CFG.DIFFICULTIES||[]).find(d=>d.id===G.difficulty);
+  // Récord personal (local, separado del saldo ONEX del servidor)
+  const prev=SAVE.soloBest||0;
+  const isRecord=p.points>prev;
+  if(isRecord){SAVE.soloBest=p.points;}
+  SAVE.totalGames=(SAVE.totalGames||0)+1;
+  if(completed)SAVE.totalWins=(SAVE.totalWins||0)+1;
+  if(S.bestCombo>(SAVE.bestCombo||0))SAVE.bestCombo=S.bestCombo;
+  // Experiencia: depende de aciertos y dificultad
+  const xpGain=Math.round((S.correct*8+(completed?40:0))*(diff?diff.mult:1));
+  const lvUp=addXP(xpGain);
+  const coinGain=S.correct*3+(completed?25:0);
+  SAVE.coins=(SAVE.coins||0)+coinGain;
+  persist();
+  if(completed){SFX.win();launchConfetti();if(window.MRAUI)MRAUI.missionTick('win');}else{SFX.timeout();}
+  // Notificar victoria a ONEX (el servidor valida y decide los puntos)
+  if(completed&&window.ONEX)ONEX.event('win');
+
+  const row=(label,value,cls)=>`<div class="res-row"><span>${label}</span><b class="${cls||''}">${value}</b></div>`;
+  const el=document.getElementById('solo-result-body');
+  if(el){
+    el.innerHTML=`
+      <div class="res-head ${completed?'ok':'fail'}">
+        <div class="res-title">${completed?'¡PARTIDA COMPLETADA!':'INTENTO FINALIZADO'}</div>
+        <div class="res-sub">${completed?'Llegaste a la meta':'Te quedaste sin intentos'}</div>
+      </div>
+      <div class="res-score"><span class="res-score-num">${p.points}</span><small>PUNTUACIÓN FINAL</small>
+        ${isRecord?'<div class="res-record">🏅 ¡NUEVO RÉCORD PERSONAL!</div>':(prev?`<div class="res-prev">Tu récord: ${prev}</div>`:'')}</div>
+      <div class="res-grid">
+        ${row('Casilla alcanzada',`${idx} / ${S.goalIdx+1}`)}
+        ${row('Respuestas correctas',S.correct,'pos')}
+        ${row('Respuestas incorrectas',S.wrong,'neg')}
+        ${row('Precisión',acc+'%')}
+        ${row('Mejor racha','🔥 '+S.bestCombo)}
+        ${row('Intentos restantes','❤️ '+S.attempts)}
+        ${row('Categoría',cat?cat.name:'Mixto')}
+        ${row('Dificultad',diff?diff.name:'—')}
+        ${row('Tiempo',(mins?mins+'m ':'')+rest+'s')}
+      </div>
+      <div class="res-rewards">
+        <div class="res-rw"><span>⭐</span><b>+${xpGain}</b><small>XP</small></div>
+        <div class="res-rw"><span>🪙</span><b>+${coinGain}</b><small>monedas</small></div>
+        ${lvUp?'<div class="res-rw lvup"><span>🆙</span><b>¡NIVEL!</b><small>subiste</small></div>':''}
+      </div>
+      <div class="res-onex" id="res-onex">🏋️ Tus Puntos ONEX se validan en el servidor</div>`;
+  }
+  showScreen('solo-result');
 }
 
 function winGame(winner){
@@ -1262,20 +1495,27 @@ function winGame(winner){
 // LOBBY / HOME
 // ════════════════════════════════════════════════════════
 function renderLobby(){
-  document.getElementById('lb-coins').textContent=SAVE.coins;
-  document.getElementById('lb-gems').textContent=SAVE.gems;
-  document.getElementById('lb-level').textContent=SAVE.level;
-  document.getElementById('lb-level-num').textContent=SAVE.level;
-  document.getElementById('lb-xp').textContent=SAVE.xp;
-  document.getElementById('lb-xp-max').textContent=xpForLevel(SAVE.level);
-  document.getElementById('lb-xp-fill').style.width=Math.min(100,(SAVE.xp/xpForLevel(SAVE.level))*100)+'%';
+  // Tolerante a elementos ausentes (el menú v2 reorganizó/movió varios)
+  const set=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val;};
+  set('lb-coins',SAVE.coins);
+  set('lb-gems',SAVE.gems);
+  set('lb-level',SAVE.level);
+  set('lb-level-num',SAVE.level);
+  set('lb-xp',SAVE.xp);
+  set('lb-xp-max',xpForLevel(SAVE.level));
+  const fill=document.getElementById('lb-xp-fill');
+  if(fill)fill.style.width=Math.min(100,(SAVE.xp/xpForLevel(SAVE.level))*100)+'%';
   // Chest badge
   const cb=document.getElementById('chest-badge');
-  if(SAVE.ownedChests.length>0){cb.classList.remove('hidden');cb.textContent=SAVE.ownedChests.length;}
-  else cb.classList.add('hidden');
+  if(cb){
+    if(SAVE.ownedChests.length>0){cb.classList.remove('hidden');cb.textContent=SAVE.ownedChests.length;}
+    else cb.classList.add('hidden');
+  }
   // Collection count
-  document.getElementById('coll-count').textContent=SAVE.unlockedChars.length+'/'+CHARS.length+' personajes';
-  document.getElementById('stats-sub').textContent=SAVE.totalGames+' partidas · '+SAVE.totalWins+' victorias';
+  set('coll-count',SAVE.unlockedChars.length+'/'+CHARS.length+' personajes');
+  set('stats-sub',SAVE.totalGames+' partidas · '+SAVE.totalWins+' victorias');
+  // Tarjeta del jugador y misión (capa de UI v2)
+  if(window.MRAUI){try{MRAUI.renderHero();MRAUI.renderMission();}catch(e){}}
   // Near-win indicators
   renderNearWin();
 }
@@ -1613,26 +1853,16 @@ function togglePerfMode(){
 // ════════════════════════════════════════════════════════
 // MOBILE: Rotate hint (shown briefly in portrait during game)
 // ════════════════════════════════════════════════════════
+// El juego se completa 100% en vertical: ya no pedimos girar el celular
+// (el aviso flotante además tapaba el botón principal LANZAR).
 function showRotateHint(){
-  const isPortrait=window.innerHeight>window.innerWidth;
-  const isSmall=window.innerWidth<=640;
-  let hint=document.getElementById('rotate-hint');
-  if(!hint){
-    hint=document.createElement('div');hint.id='rotate-hint';hint.className='rotate-hint';
-    hint.textContent='📱 Gira el celular para ver mejor el tablero';
-    document.body.appendChild(hint);
-  }
-  if(isPortrait&&isSmall&&G.players&&G.players.length){
-    hint.style.display='block';
-    setTimeout(()=>{if(hint)hint.style.display='none';},4000);
-  } else {
-    hint.style.display='none';
-  }
+  const hint=document.getElementById('rotate-hint');
+  if(hint)hint.remove();
 }
 
 
 function showScreen(id){
-  const screens=['splash','lobby','classroom-setup','char-select','game','qscreen','boss-screen','gameover','chest-screen','collection-screen'];
+  const screens=['splash','lobby','mode-select','setup-wizard','classroom-setup','char-select','game','qscreen','boss-screen','gameover','chest-screen','collection-screen','solo-result','profile-screen'];
   screens.forEach(s=>{
     const e=document.getElementById(s);
     if(!e)return;
@@ -1645,8 +1875,13 @@ function showScreen(id){
   // Transición de entrada
   e.classList.remove('screen-enter');void e.offsetWidth;e.classList.add('screen-enter');
   // Set correct display type per screen
-  const flexScreens=['splash','lobby','classroom-setup','char-select','game','gameover','chest-screen','collection-screen'];
+  const flexScreens=['splash','lobby','mode-select','setup-wizard','classroom-setup','char-select','game','gameover','chest-screen','collection-screen','solo-result','profile-screen'];
   const fixedScreens=['qscreen','boss-screen'];
+  // Navegación inferior: visible solo en pantallas de menú
+  const navScreens=['lobby','collection-screen','profile-screen'];
+  const nav=document.getElementById('bottom-nav');
+  if(nav)nav.classList.toggle('hidden',!navScreens.includes(id));
+  document.body.classList.toggle('has-nav',navScreens.includes(id));
   if(flexScreens.includes(id))e.style.display='flex';
   else if(fixedScreens.includes(id))e.style.display='flex';
   else e.style.display='block';
@@ -1673,10 +1908,12 @@ function buildCharGrid(){
   }).join('');
 }
 function selectChar(i){
-  if(!SAVE.unlockedChars.includes(CHARS[i].id))return;
+  if(!CHARS[i]||!SAVE.unlockedChars.includes(CHARS[i].id))return;
   selectedCharId=i;
+  // La grilla antigua puede no estar en pantalla (el asistente usa carrusel)
   document.querySelectorAll('.char-card').forEach(c=>c.classList.remove('selected'));
-  document.getElementById('cc-'+i).classList.add('selected');
+  const card=document.getElementById('cc-'+i);
+  if(card)card.classList.add('selected');
 }
 
 function startGame(){
@@ -1691,14 +1928,32 @@ function startGame(){
   G.cur=0;G.log=[];G.winner=null;G.frozen=[];G.rolling=false;
   G.round=1;G.roundEventCount=0;G.nextEventAt=3+rnd(3);
   G.doubleRound=false;G.trapImmune=[];G.showCards=false;
-  G.classroom=false;G.goalPoints=0;
+  G.classroom=false;G.goalPoints=0;G.seenQ=[];
+  // Nombres personalizados del asistente (si existen)
+  if(Array.isArray(G.playerNames)){
+    G.playerNames.forEach((n,i)=>{if(n&&G.players[i])G.players[i].name=n;});
+  }
+  // Personajes elegidos por jugador (si el asistente los definió)
+  if(Array.isArray(G.playerChars)){
+    G.playerChars.forEach((ci,i)=>{
+      const c=CHARS[ci];if(c&&G.players[i]){G.players[i].charEmoji=c.emoji;G.players[i].charName=c.name;G.players[i].charAbility=c.ability;}
+    });
+  }
   // Remove classroom badge if present
   const cb=document.getElementById('class-badge');if(cb)cb.remove();
+  document.body.classList.toggle('solo-mode',!!G.solo);
+  if(G.solo)soloReset();
   showScreen('game');
-  setTimeout(()=>{renderBoard();renderScore();renderPanel();renderLog();renderCombo();fitBoard();showRotateHint();},50);
-  addLog('🎮 ¡Math Rush Arena ha comenzado!');
+  setTimeout(()=>{renderBoard();renderScore();renderPanel();renderLog();renderCombo();fitBoard();renderSoloHUD();},50);
+  addLog(G.solo?'🎯 ¡Modo solitario iniciado!':'🎮 ¡Math Rush Arena ha comenzado!');
   addLog(`🎭 Tu personaje: ${char.emoji} ${char.name}`);
   if(window.ONEX)ONEX.sessionStart(); // Puntos ONEX: abre sesión firmada en el servidor
+}
+
+// Inicia una partida en solitario (un jugador, tablero completo)
+function startSolo(){
+  G.solo=true;G.np=1;
+  startGame();
 }
 
 // ════════════════════════════════════════
@@ -1802,5 +2057,19 @@ window.useCard=useCard;
 window.cycleEmoji=cycleEmoji;
 window.updateTeamName=updateTeamName;
 window.removeTeam=removeTeam;
+
+// ── API interna para la capa de UI (src/ui.js) ──
+// Expone solo lo necesario para orquestar pantallas: la lógica de juego
+// (tablero, dado, turnos, preguntas) permanece encapsulada aquí.
+window.MRAGame={
+  showScreen, renderLobby, renderCollection,
+  startGame, startSolo,
+  get G(){return G;},
+  get SAVE(){return SAVE;},
+  get S(){return S;},
+  CHARS, CARDS, RARITY_STYLE, EQ, HQ,
+  persist, addXP, startMusic, toggleMusic,
+  buildCharGrid,
+};
 
 })();

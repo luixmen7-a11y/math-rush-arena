@@ -39,60 +39,136 @@
 
 <!-- ══ LOBBY / HOME ══ -->
 <div id="lobby" class="hidden">
-  <div class="lobby-top">
-    <img src="assets/logo.png" class="lobby-logo" alt="MRA"/>
+  <header class="lobby-top">
+    <img src="assets/logo.png" class="lobby-logo" alt="Math Rush Arena"/>
     <div class="currency">
-      <div class="curr-pill">🪙 <span id="lb-coins">0</span></div>
-      <div class="curr-pill">💎 <span id="lb-gems">0</span></div>
+      <div class="curr-pill" title="Monedas"><span aria-hidden="true">🪙</span> <span id="lb-coins">0</span><span class="sr-only"> monedas</span></div>
+      <div class="curr-pill" title="Diamantes"><span aria-hidden="true">💎</span> <span id="lb-gems">0</span><span class="sr-only"> diamantes</span></div>
+      <button class="icon-btn" id="lb-settings" aria-label="Perfil y ajustes">⚙</button>
     </div>
-  </div>
+  </header>
   <div class="lobby-body">
-    <div class="level-card">
-      <div class="level-row">
-        <div class="level-badge" id="lb-level">1</div>
-        <div class="level-info">
-          <div class="level-num">Nivel <span id="lb-level-num">1</span></div>
-          <div class="level-sub"><span id="lb-xp">0</span> / <span id="lb-xp-max">100</span> XP</div>
-          <div class="xp-track"><div class="xp-fill" id="lb-xp-fill" style="width:0%"></div></div>
+
+    <!-- Tarjeta principal del jugador -->
+    <section class="hero-card" aria-labelledby="hero-name">
+      <div class="hero-top">
+        <div class="hero-avatar" id="hero-avatar" aria-hidden="true">🧙</div>
+        <div class="hero-info">
+          <div class="hero-name" id="hero-name">Jugador</div>
+          <div class="hero-char" id="hero-char">Matemago</div>
+          <div class="hero-lvl-row">
+            <span class="hero-lvl" id="hero-lvl">Nivel 1</span>
+            <span class="hero-xp" id="hero-xp">0 / 100 XP</span>
+          </div>
+          <div class="xp-track" role="progressbar" aria-label="Progreso de experiencia" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="hero-xp-bar">
+            <div class="xp-fill" id="lb-xp-fill" style="width:0%"></div>
+          </div>
         </div>
       </div>
-    </div>
+      <button class="big-play" id="lobby-play">JUGAR</button>
+    </section>
 
-    <div class="nearwin-card" id="nearwin-card">
-      <div class="nearwin-title">🎯 CASI LO LOGRAS</div>
-      <div id="nearwin-items"></div>
-    </div>
+    <!-- Misión destacada -->
+    <section class="mission-card" id="mission-card" aria-labelledby="mission-title">
+      <div class="mission-head">
+        <span class="mission-label" id="mission-title">MISIÓN DESTACADA</span>
+        <button class="link-btn" id="mission-more">Ver todas</button>
+      </div>
+      <div class="mission-body" id="mission-body"></div>
+    </section>
 
-    <button class="big-play" id="lobby-play">🎮 ¡JUGAR!</button>
-
-    <div class="lobby-grid">
-      <div class="lobby-tile" id="tile-chests">
-        <span class="lobby-tile-icon">🎁</span>
-        <div class="lobby-tile-name">Cofres</div>
-        <div class="lobby-tile-sub">Ábrelos para premios</div>
+    <!-- Accesos rápidos (máx. 4) -->
+    <nav class="lobby-grid" aria-label="Accesos rápidos">
+      <button class="lobby-tile onex-tile" id="tile-onex">
+        <span class="lobby-tile-icon" aria-hidden="true">🏋️</span>
+        <span class="lobby-tile-name">Puntos ONEX</span>
+        <span class="lobby-tile-sub">Canjea premios</span>
+      </button>
+      <button class="lobby-tile" id="tile-chests">
+        <span class="lobby-tile-icon" aria-hidden="true">🎁</span>
+        <span class="lobby-tile-name">Cofres</span>
+        <span class="lobby-tile-sub">Ábrelos para premios</span>
         <span class="tile-badge hidden" id="chest-badge">0</span>
-      </div>
-      <div class="lobby-tile" id="tile-collection">
-        <span class="lobby-tile-icon">📚</span>
-        <div class="lobby-tile-name">Colección</div>
-        <div class="lobby-tile-sub" id="coll-count">0 personajes</div>
-      </div>
-      <div class="lobby-tile classroom" id="tile-classroom">
-        <span class="lobby-tile-icon">🏫</span>
-        <div class="lobby-tile-name">Modo Aula</div>
-        <div class="lobby-tile-sub">Para profesores</div>
-      </div>
-      <div class="lobby-tile" id="tile-shop">
-        <span class="lobby-tile-icon">🛒</span>
-        <div class="lobby-tile-name">Tienda</div>
-        <div class="lobby-tile-sub">Compra cofres</div>
-      </div>
-      <div class="lobby-tile" id="tile-stats">
-        <span class="lobby-tile-icon">📊</span>
-        <div class="lobby-tile-name">Estadísticas</div>
-        <div class="lobby-tile-sub" id="stats-sub">0 partidas</div>
-      </div>
-    </div>
+      </button>
+      <button class="lobby-tile" id="tile-collection">
+        <span class="lobby-tile-icon" aria-hidden="true">📚</span>
+        <span class="lobby-tile-name">Colección</span>
+        <span class="lobby-tile-sub" id="coll-count">0 personajes</span>
+      </button>
+      <button class="lobby-tile classroom" id="tile-classroom">
+        <span class="lobby-tile-icon" aria-hidden="true">🏫</span>
+        <span class="lobby-tile-name">Modo Aula</span>
+        <span class="lobby-tile-sub">Para profesores</span>
+      </button>
+    </nav>
+
+    <!-- Progreso secundario -->
+    <section class="nearwin-card" id="nearwin-card" aria-labelledby="nearwin-title">
+      <div class="nearwin-title" id="nearwin-title">CASI LO LOGRAS</div>
+      <div id="nearwin-items"></div>
+    </section>
+  </div>
+</div>
+
+<!-- ══ PERFIL (estadísticas, tienda, ajustes) ══ -->
+<div id="profile-screen" class="hidden">
+  <div class="screen-hdr">
+    <button class="back-btn" id="prof-back">← Volver</button>
+    <div class="screen-hdr-title">PERFIL</div>
+  </div>
+  <div class="screen-body" id="profile-body"></div>
+</div>
+
+<!-- ══ SELECCIÓN DE MODO ══ -->
+<div id="mode-select" class="hidden">
+  <div class="screen-hdr">
+    <button class="back-btn" id="ms-back">← Volver</button>
+    <div class="screen-hdr-title">ELIGE CÓMO JUGAR</div>
+  </div>
+  <div class="screen-body">
+    <button class="mode-card" id="mode-solo" aria-describedby="mode-solo-desc">
+      <span class="mode-card-icon" aria-hidden="true">🎯</span>
+      <span class="mode-card-body">
+        <span class="mode-card-name">Modo Solitario</span>
+        <span class="mode-card-desc" id="mode-solo-desc">Avanza por el tablero, responde y gana Puntos ONEX</span>
+        <span class="mode-card-meta"><span>1 jugador</span><span>·</span><span>5–15 min</span></span>
+      </span>
+      <span class="mode-card-go" aria-hidden="true">›</span>
+    </button>
+    <button class="mode-card" id="mode-friends" aria-describedby="mode-friends-desc">
+      <span class="mode-card-icon" aria-hidden="true">🎮</span>
+      <span class="mode-card-body">
+        <span class="mode-card-name">Partida con Amigos</span>
+        <span class="mode-card-desc" id="mode-friends-desc">Compitan por turnos en el mismo dispositivo</span>
+        <span class="mode-card-meta"><span>2–6 jugadores</span><span>·</span><span>10–25 min</span></span>
+      </span>
+      <span class="mode-card-go" aria-hidden="true">›</span>
+    </button>
+  </div>
+</div>
+
+<!-- ══ ASISTENTE DE CONFIGURACIÓN ══ -->
+<div id="setup-wizard" class="hidden">
+  <div class="screen-hdr">
+    <button class="back-btn" id="wz-back">← Atrás</button>
+    <div class="screen-hdr-title" id="wz-title">CONFIGURAR</div>
+  </div>
+  <div class="wz-steps" id="wz-steps" role="list" aria-label="Pasos de configuración"></div>
+  <div class="screen-body" id="wz-body"></div>
+  <div class="wz-foot">
+    <button class="play-btn" id="wz-next">CONTINUAR</button>
+    <div class="wz-hint" id="wz-hint" role="status"></div>
+  </div>
+</div>
+
+<!-- ══ RESULTADO MODO SOLITARIO ══ -->
+<div id="solo-result" class="hidden">
+  <div class="screen-body" id="solo-result-body"></div>
+  <div class="res-actions">
+    <button class="play-btn" id="res-again">JUGAR DE NUEVO</button>
+    <button class="ghost-btn" id="res-config">Cambiar configuración</button>
+    <button class="ghost-btn" id="res-prizes">Ver premios ONEX</button>
+    <button class="ghost-btn" id="res-home">Volver al inicio</button>
   </div>
 </div>
 
@@ -211,7 +287,8 @@
     <div class="board-col"><div id="board"></div></div>
     <div class="side-col">
       <div class="side-inner">
-        <div class="panel">
+        <div id="solo-hud" class="solo-hud" aria-live="polite"></div>
+        <div class="panel" id="scores-panel">
           <div class="p-lbl">PUNTUACIONES</div>
           <div id="scoreboard"></div>
         </div>
@@ -298,8 +375,28 @@
 
 </div><!-- #app -->
 
+<!-- ══ NAVEGACIÓN INFERIOR ══ -->
+<nav id="bottom-nav" class="hidden" aria-label="Navegación principal">
+  <button class="nav-item" data-nav="home" aria-current="page">
+    <span class="nav-ico" aria-hidden="true">🏠</span><span class="nav-lbl">Inicio</span>
+  </button>
+  <button class="nav-item" data-nav="collection">
+    <span class="nav-ico" aria-hidden="true">📚</span><span class="nav-lbl">Colección</span>
+  </button>
+  <button class="nav-item nav-play" data-nav="play" aria-label="Jugar">
+    <span class="nav-ico" aria-hidden="true">▶</span><span class="nav-lbl">Jugar</span>
+  </button>
+  <button class="nav-item" data-nav="shop">
+    <span class="nav-ico" aria-hidden="true">🛒</span><span class="nav-lbl">Tienda</span>
+  </button>
+  <button class="nav-item" data-nav="profile">
+    <span class="nav-ico" aria-hidden="true">👤</span><span class="nav-lbl">Perfil</span>
+  </button>
+</nav>
 
+<script src="src/config.js"></script>
 <script src="src/game.js"></script>
+<script src="src/ui.js"></script>
 <script src="src/onex.js"></script>
 </body>
 </html>
